@@ -1,0 +1,22 @@
+.adk/
+__pycache__/
+*.pyc
+.env
+
+# data/（教材 PDF、向量庫、對話資料庫）和 src/frontend/generated/（畫出來的圖）都有進版控，
+# 這個 repo 是私人的，當作完整備份。注意：
+#   - data/raw_docs/ 的教材 PDF 有出版社版權；data/conversations.db 裡有帳號、密碼雜湊、
+#     登入憑證和對話內容。這個 repo 不要改成公開。
+#   - 伺服器在跑的時候資料庫會一直變動，commit 前最好先關掉伺服器。
+
+# 早期測試留下的殘留檔案／臨時除錯腳本，本機留著沒關係，但不進 repo
+out.txt
+test_output.txt
+models.txt
+test_image2.py
+test_image3.py
+test_imagen.py
+
+# data/ 內容（教材 PDF、向量庫、對話資料庫）不上傳，避免著作權與隱私問題
+data/*
+!data/.gitkeep

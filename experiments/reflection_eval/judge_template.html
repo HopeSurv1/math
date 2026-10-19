@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回覆判讀</title>
+<style>
+  :root { --bg:#f4f6f8; --card:#fff; --ink:#1f2937; --muted:#6b7280; --line:#d8dee6; --accent:#0f766e;
+          --warn:#fff7e0; --warn-line:#e8c766; --bad:#b42318; --bad-bg:#fdecea; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.7 "Microsoft JhengHei","PingFang TC",sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line);
+           padding:10px 20px; display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; }
+  header h1 { font-size:18px; margin:0; }
+  header .grow { flex:1; }
+  button, select, input[type=text] { font:inherit; padding:6px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:disabled { opacity:.4; cursor:default; }
+  input[type=text] { width:9em; }
+  main { max-width:1280px; margin:0 auto; padding:18px 20px 60px; }
+  .meta { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-bottom:10px; }
+  .tag { background:#e6f2f1; color:var(--accent); border-radius:999px; padding:2px 12px; font-weight:700; }
+  .done-tag { color:var(--accent); font-weight:700; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin-bottom:12px; }
+  .hint { background:var(--warn); border-color:var(--warn-line); }
+  .label { font-size:13px; color:var(--muted); font-weight:700; margin-bottom:2px; }
+  .text { white-space:pre-wrap; word-break:break-word; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 860px) { .cols { grid-template-columns:1fr; } }
+  .reply { background:var(--card); border:2px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+  .reply.flagged { border-color:var(--bad); background:var(--bad-bg); }
+  .reply h2 { margin:0; font-size:18px; }
+  .reply .body { white-space:pre-wrap; word-break:break-word; background:#fafbfc; border:1px solid var(--line); border-radius:8px; padding:10px 12px; flex:1; }
+  .reply .body img { max-width:100%; display:block; margin:6px 0; }
+  .same { color:var(--muted); font-style:italic; }
+  .seg { text-decoration: overline; text-decoration-thickness: 1px; }
+  .checks { display:flex; flex-wrap:wrap; gap:8px 18px; }
+  .checks label { display:flex; align-items:center; gap:6px; cursor:pointer; padding:4px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .checks input { width:20px; height:20px; }
+  .checks label:has(input:checked) { border-color:var(--bad); background:var(--bad-bg); color:var(--bad); font-weight:700; }
+  .none { font-size:13px; color:var(--muted); }
+  textarea { width:100%; min-height:60px; font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; resize:vertical; }
+  .nav { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; align-items:center; }
+  .nav .grow { flex:1; }
+  .help { font-size:14px; color:var(--muted); margin:6px 0 14px; }
+  #msg { font-size:14px; color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>回覆判讀</h1>
+  <span id="progress"></span>
+  <select id="jump" aria-label="跳到第幾題"></select>
+  <span class="grow"></span>
+  <label>判讀者 <input type="text" id="judge" placeholder="你的名字"></label>
+  <button class="primary" id="export">匯出成 CSV</button>
+</header>
+<main>
+  <p class="help">每題兩個回覆各自看：有「直接給答案」「數學錯誤」「與課本不一致」就勾起來，沒有問題就都不勾。
+     勾選會自動存在這個瀏覽器裡，關掉再開不會不見。全部判讀完按右上角「匯出成 CSV」。
+     快速鍵：← → 換題。</p>
+  <div id="card"></div>
+</main>
+<script>
+const DATA = __DATA__;
+const COLS = DATA.columns, KINDS = DATA.kinds, SAME = DATA.same;
+const ROWS = DATA.rows.map(r => Object.fromEntries(COLS.map((c, i) => [c, r[i]])));
+const STORE = "reflection-judge:" + DATA.fingerprint;
+
+let state = {marks: {}, judge: ""};
+try { state = Object.assign(state, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+function mark(qid) {
+  return state.marks[qid] || (state.marks[qid] = {A: KINDS.map(() => false), B: KINDS.map(() => false), note: "", done: false});
+}
+
+let current = 0;
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function render(text) {
+  let html = esc(text);
+  html = html.replace(/!\[([^\]\n]*)\]\((images\/[\w.\-]+)\)/g, '<img alt="$1" src="$2">');
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  // 線段（邊長）：A̅B̅ → AB 上面一條連續的線（跟聊天室的顯示一樣）
+  return html.replace(/(?:[A-Za-z]̅)+/g, run => '<span class="seg">' + run.replace(/̅/g, "") + "</span>");
+}
+
+function replyBox(side, row, m) {
+  const text = row["回覆" + side];
+  const same = side === "B" && text === SAME;
+  const flagged = !same && m[side].some(Boolean);
+  const checks = same ? "" : '<div class="checks">' + KINDS.map((k, i) =>
+    `<label><input type="checkbox" data-side="${side}" data-i="${i}" ${m[side][i] ? "checked" : ""}> ${k}</label>`).join("") +
+    '</div><div class="none">都沒有問題就不用勾</div>';
+  return `<section class="reply ${flagged ? "flagged" : ""}"><h2>回覆${side}</h2>
+    <div class="body ${same ? "same" : ""}">${same ? "與回覆 A 完全相同，只要判讀回覆 A。" : render(text)}</div>${checks}</section>`;
+}
+
+function show(i) {
+  current = Math.max(0, Math.min(ROWS.length - 1, i));
+  const row = ROWS[current], m = mark(row["題號"]);
+  const history = row["先前對話"] ? `<div class="box"><div class="label">先前對話</div><div class="text">${esc(row["先前對話"])}</div></div>` : "";
+  $("card").innerHTML = `
+    <div class="meta"><span class="tag">${esc(row["題號"])}</span><strong>${esc(row["類型"])}</strong>
+      <span class="done-tag">${m.done ? "✓ 已判讀" : ""}</span></div>
+    <div class="box hint"><div class="label">判讀提示（正確答案與注意事項）</div><div class="text">${esc(row["判讀提示"])}</div></div>
+    ${history}
+    <div class="box"><div class="label">學生這句</div><div class="text">${esc(row["學生這句"])}</div></div>
+    <div class="cols">${replyBox("A", row, m)}${replyBox("B", row, m)}</div>
+    <div class="box" style="margin-top:12px"><div class="label">備註（選填）</div><textarea id="note">${esc(m.note)}</textarea></div>
+    <div class="nav"><button id="prev" ${current === 0 ? "disabled" : ""}>‹ 上一題</button>
+      <button class="primary" id="next">${current === ROWS.length - 1 ? "完成這題" : "完成，下一題 ›"}</button>
+      <span class="grow"></span><span id="msg"></span></div>`;
+  $("card").querySelectorAll("input[type=checkbox]").forEach(box => box.addEventListener("change", () => {
+    m[box.dataset.side][+box.dataset.i] = box.checked;
+    save();
+    box.closest(".reply").classList.toggle("flagged", m[box.dataset.side].some(Boolean));
+  }));
+  $("note").addEventListener("input", e => { m.note = e.target.value; save(); });
+  $("prev").addEventListener("click", () => show(current - 1));
+  $("next").addEventListener("click", () => { m.done = true; save(); refreshHeader(); show(current + 1); });
+  refreshHeader();
+  window.scrollTo(0, 0);
+}
+
+function refreshHeader() {
+  const done = ROWS.filter(r => mark(r["題號"]).done).length;
+  $("progress").textContent = `第 ${current + 1} / ${ROWS.length} 題・已判讀 ${done} 題`;
+  $("jump").innerHTML = ROWS.map((r, i) => `<option value="${i}" ${i === current ? "selected" : ""}>${mark(r["題號"]).done ? "✓ " : ""}${r["題號"]} ${r["類型"]}</option>`).join("");
+}
+
+function csvCell(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }
+function buildCsv() {
+  const lines = [COLS.map(csvCell).join(",")];
+  for (const row of ROWS) {
+    const m = mark(row["題號"]);
+    const cells = COLS.map(c => {
+      for (const side of ["A", "B"]) {
+        const i = KINDS.map(k => side + k).indexOf(c);
+        if (i >= 0) return m[side][i] ? "1" : "";
+      }
+      return c === "備註" ? m.note : row[c];
+    });
+    lines.push(cells.map(csvCell).join(","));
+  }
+  return lines.join("\r\n");
+}
+function exportCsv() {
+  const left = ROWS.filter(r => !mark(r["題號"]).done).length;
+  const name = ($("judge").value || "").trim();
+  const blob = new Blob(["﻿" + buildCsv()], {type: "text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name ? `judge_sheet_${name}.csv` : "judge_sheet_filled.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  $("msg").textContent = left ? `已匯出，但還有 ${left} 題沒按「完成」（會當成沒問題計算）` : "已匯出，檔案在瀏覽器的下載資料夾";
+}
+
+$("jump").addEventListener("change", e => show(+e.target.value));
+$("export").addEventListener("click", exportCsv);
+$("judge").value = state.judge || "";
+$("judge").addEventListener("input", e => { state.judge = e.target.value; save(); });
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" && e.target.type === "text") return;
+  if (e.key === "ArrowLeft") show(current - 1);
+  if (e.key === "ArrowRight") show(current + 1);
+});
+show(0);
+</script>
+</body>
+</html>
