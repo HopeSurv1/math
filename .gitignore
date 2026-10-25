@@ -1,0 +1,23 @@
+.adk/
+__pycache__/
+*.pyc
+.env
+venv/
+
+# data/ 內容（教材 PDF、向量庫、對話資料庫）不上傳，避免著作權與隱私問題
+data/*
+!data/.gitkeep
+
+# 畫圖工具產生的圖片來自實際對話，不上傳
+src/frontend/generated/*
+
+# 實驗用的資料庫含測試帳號的登入雜湊，不上傳
+experiments/reflection_eval/results/experiment.db
+
+# 早期測試留下的殘留檔案／臨時除錯腳本，本機留著沒關係，但不進 repo
+out.txt
+test_output.txt
+models.txt
+test_image2.py
+test_image3.py
+test_imagen.py

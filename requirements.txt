@@ -1,0 +1,9 @@
+google-adk
+python-dotenv
+chromadb
+google-genai
+pymupdf
+fastapi
+uvicorn
+matplotlib
+numpy

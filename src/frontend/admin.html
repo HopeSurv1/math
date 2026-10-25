@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>管理後台 · 數學小老師</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=14">
+    <link rel="stylesheet" href="learning.css?v=1">
+    <link rel="stylesheet" href="admin.css?v=3">
+</head>
+<body>
+
+    <div class="auth-screen" id="adminLoginScreen" hidden>
+        <div class="auth-card">
+            <div class="brand-mark" aria-hidden="true">π</div>
+            <h1 class="auth-title"><span class="gradient-text">管理員登入</span></h1>
+            <p class="auth-desc">這裡是數學小老師的管理後台。學生請回到<a href="/">一般登入頁</a>。</p>
+
+            <form id="adminLoginForm" class="auth-form">
+                <input type="text" id="adminUsername" placeholder="管理員帳號" autocomplete="username" required>
+                <input type="password" id="adminPassword" placeholder="密碼" autocomplete="current-password" required>
+                <button type="submit" class="btn-primary auth-submit">登入管理後台</button>
+                <p class="auth-msg" id="adminLoginMsg"></p>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-page" id="adminDashboard" hidden>
+        <header class="admin-header">
+            <span class="app-name"><span class="logo-mark" aria-hidden="true">π</span>數學小老師<span class="admin-badge">管理後台</span></span>
+            <button type="button" class="btn-secondary" id="adminLogoutBtn">登出</button>
+        </header>
+
+        <main class="admin-main">
+
+            <nav class="admin-tabs" role="tablist" aria-label="管理後台分頁">
+                <button type="button" class="admin-tab active" role="tab" data-panel="usersPanel" aria-selected="true">帳號管理</button>
+                <button type="button" class="admin-tab" role="tab" data-panel="learningPanel" aria-selected="false">學習分析</button>
+                <button type="button" class="admin-tab" role="tab" data-panel="reviewsPanel" aria-selected="false">老師自我檢查</button>
+            </nav>
+
+            <section id="usersPanel" role="tabpanel">
+                <div class="panel-head">
+                    <div>
+                        <h1 class="panel-title">註冊帳號</h1>
+                        <p class="panel-subtitle" id="userCount">載入中…</p>
+                    </div>
+                    <div class="panel-tools">
+                        <input type="search" id="userSearch" class="search-input" placeholder="搜尋帳號" autocomplete="off">
+                        <button type="button" class="btn-secondary" id="refreshBtn">重新整理</button>
+                    </div>
+                </div>
+
+                <p class="admin-notice" id="adminNotice" role="status" hidden></p>
+
+                <div class="table-wrap">
+                    <table class="user-table">
+                        <thead>
+                            <tr>
+                                <th>帳號</th>
+                                <th>註冊時間</th>
+                                <th class="num">對話串</th>
+                                <th>最後活動</th>
+                                <th><span class="visually-hidden">操作</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+
+                        </tbody>
+                    </table>
+                    <p class="empty-state" id="userEmpty" hidden></p>
+                </div>
+            </section>
+
+            <section id="learningPanel" role="tabpanel" hidden>
+                <div id="overviewView">
+                    <div class="panel-head">
+                        <div>
+                            <h1 class="panel-title">學習分析</h1>
+                            <p class="panel-subtitle">全班的使用情形與最常卡住的單元。點學生可以看他的學習紀錄。</p>
+                        </div>
+                        <div class="panel-tools">
+                            <button type="button" class="btn-secondary" id="refreshOverviewBtn">重新整理</button>
+                        </div>
+                    </div>
+                    <div id="overviewContent"><p class="report-empty">載入中…</p></div>
+                </div>
+
+                <div id="studentView" hidden>
+                    <button type="button" class="back-link" id="backToOverviewBtn">
+                        <svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+                        全班總覽
+                    </button>
+                    <h1 class="panel-title student-title" id="studentTitle"></h1>
+                    <div id="studentReport"></div>
+                </div>
+            </section>
+
+            <section id="reviewsPanel" role="tabpanel" hidden>
+                <div class="panel-head">
+                    <div>
+                        <h1 class="panel-title">老師自我檢查</h1>
+                        <p class="panel-subtitle">老師的回覆送出前會先自我檢查：有沒有直接給答案、算錯、跟課本不一致、答非所問，有問題就改寫。</p>
+                    </div>
+                    <div class="panel-tools">
+                        <button type="button" class="btn-secondary" id="refreshReviewsBtn">重新整理</button>
+                    </div>
+                </div>
+                <div id="reviewsContent"><p class="report-empty">載入中…</p></div>
+            </section>
+        </main>
+    </div>
+
+    <dialog id="userDialog" class="dialog" aria-labelledby="userDialogTitle">
+        <div class="dialog-body">
+            <h2 class="dialog-title" id="userDialogTitle">帳號詳細資訊</h2>
+
+            <dl class="detail-list">
+                <dt>帳號</dt>
+                <dd id="detailUsername"></dd>
+                <dt>密碼</dt>
+                <dd class="muted">已加密儲存，無法查看</dd>
+                <dt>註冊時間</dt>
+                <dd id="detailCreated"></dd>
+                <dt>對話串／訊息</dt>
+                <dd id="detailCounts"></dd>
+                <dt>最後活動</dt>
+                <dd id="detailActive"></dd>
+            </dl>
+
+            <button type="button" class="btn-secondary zone-button learning-link-btn" id="openLearningBtn">查看學習紀錄</button>
+
+            <form id="resetPasswordForm" class="danger-zone reset-zone">
+                <h3>重設密碼</h3>
+                <p>學生忘記密碼時，可以幫他設一組新密碼。重設後，這個帳號在所有裝置上都會被登出，需要用新密碼重新登入。</p>
+                <label for="newPassword">新密碼</label>
+                <input type="text" id="newPassword" autocomplete="off" spellcheck="false" required>
+                <p class="auth-msg" id="resetMsg"></p>
+                <button type="submit" class="btn-primary zone-button" id="resetPasswordBtn">重設密碼</button>
+            </form>
+
+            <section class="danger-zone">
+                <h3>刪除帳號</h3>
+                <p>把這個帳號連同所有對話紀錄和老師畫的圖一起永久刪除，無法復原。</p>
+                <button type="button" class="btn-secondary btn-danger-outline zone-button" id="openDeleteUserBtn">刪除這個帳號…</button>
+            </section>
+
+            <div class="dialog-actions">
+                <button type="button" class="btn-secondary" id="closeUserDialogBtn">關閉</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="deleteUserDialog" class="dialog" aria-labelledby="deleteUserDialogTitle">
+        <form id="deleteUserForm" class="dialog-body">
+            <h2 class="dialog-title" id="deleteUserDialogTitle">刪除帳號</h2>
+            <div class="dialog-account">
+                <span class="user-avatar" id="deleteUserAvatar"></span>
+                <span id="deleteUserName"></span>
+            </div>
+
+            <section class="danger-zone">
+                <h3>這個動作無法復原</h3>
+                <p id="deleteUserSummary"></p>
+                <label for="deleteUserConfirm">請輸入帳號名稱「<span id="deleteUserConfirmName"></span>」確認</label>
+                <input type="text" id="deleteUserConfirm" autocomplete="off" spellcheck="false" required>
+                <p class="auth-msg" id="deleteUserMsg"></p>
+            </section>
+
+            <div class="dialog-actions">
+                <button type="button" class="btn-secondary" id="cancelDeleteUserBtn">取消</button>
+                <button type="submit" class="btn-danger" id="confirmDeleteUserBtn" disabled>永久刪除帳號</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="learning_report.js?v=1"></script>
+    <script src="admin_learning.js?v=1"></script>
+    <script src="admin.js?v=3"></script>
+</body>
+</html>
